@@ -1,0 +1,28 @@
+# Go build artifacts
+*.exe
+*.test
+*.out
+bin/
+
+# Local SQLite database
+*.db
+
+# React / Vite dependencies and build output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Environment files
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# VS Code logs (keep project settings)
+.vscode/*.log
+
+# Windows and macOS metadata
+Thumbs.db
+.DS_Store
