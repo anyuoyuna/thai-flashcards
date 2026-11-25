@@ -1,0 +1,270 @@
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.app-header {
+  margin-bottom: 40px;
+}
+
+.app-header h1 {
+  margin-bottom: 8px;
+}
+
+.app-header p {
+  color: #666;
+}
+
+.sets-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.set-card {
+  padding: 20px;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  background: white;
+}
+
+.set-card h3 {
+  margin-top: 0;
+}
+
+.set-card button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  background: #6d28d9;
+  cursor: pointer;
+}
+
+.set-card button:hover {
+  background: #5b21b6;
+}
+
+.error {
+  color: #b91c1c;
+  margin-bottom: 16px;
+}
+
+.back-button {
+  margin-bottom: 24px;
+  padding: 8px 14px;
+  border: 1px solid #6d28d9;
+  border-radius: 6px;
+  color: #6d28d9;
+  background: transparent;
+  cursor: pointer;
+}
+
+.back-button:hover {
+  color: white;
+  background: #6d28d9;
+}
+
+.cards-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  padding: 20px;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  background: white;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.thai-word {
+  font-size: 28px;
+  margin: 20px 0 8px;
+}
+
+.transcription {
+  color: #666666;
+  font-style: italic;
+}
+
+.card-form {
+  display: grid;
+  gap: 12px;
+  max-width: 500px;
+  margin: 24px 0 32px;
+  padding: 20px;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.card-form h3 {
+  margin: 0 0 8px;
+}
+
+.card-form label {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  font-weight: bold;
+}
+
+.card-form input {
+  padding: 10px;
+  border: 1px solid #bbbbbb;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.card-form button {
+  justify-self: start;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  background: #6d28d9;
+  cursor: pointer;
+}
+
+.card-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.set-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.set-form input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #bbbbbb;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.set-form button {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  background: #6d28d9;
+  cursor: pointer;
+}
+
+.set-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.delete-button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  background: #dc2626;
+  cursor: pointer;
+}
+
+.delete-button:hover {
+  background: #b91c1c;
+}
+
+.edit-card-form {
+  display: grid;
+  gap: 10px;
+}
+
+.edit-card-form input {
+  padding: 8px;
+  border: 1px solid #bbbbbb;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.edit-card-form button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  background: #6d28d9;
+  cursor: pointer;
+}
+
+.edit-button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  background: #2563eb;
+  cursor: pointer;
+}
+
+.edit-button:hover {
+  background: #1d4ed8;
+}
+
+.study-button,
+.flip-button,
+.study-controls button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  background: #6d28d9;
+  cursor: pointer;
+}
+
+.study-button {
+  margin: 16px 0 24px;
+}
+
+.study-button:hover,
+.flip-button:hover,
+.study-controls button:hover:not(:disabled) {
+  background: #5b21b6;
+}
+
+.study-mode {
+  max-width: 500px;
+}
+
+.study-counter {
+  color: #666666;
+}
+
+.study-card {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 32px;
+  border: 1px solid #dddddd;
+  border-radius: 12px;
+  background: white;
+  text-align: center;
+}
+
+.study-card h3 {
+  font-size: 28px;
+}
+
+.study-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.study-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
