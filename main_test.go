@@ -11,16 +11,45 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	var err error
+	testDirectory, err := os.MkdirTemp("", "thai-flashcards-test-")
+	if err != nil {
+		log.Printf("failed to create test directory: %v", err)
+		os.Exit(1)
+	}
+
+	originalDirectory, err := os.Getwd()
+	if err != nil {
+		log.Printf("failed to get current directory: %v", err)
+		os.Exit(1)
+	}
+
+	if err := os.Chdir(testDirectory); err != nil {
+		log.Printf("failed to change test directory: %v", err)
+		os.Exit(1)
+	}
 
 	database, err = openDatabase()
 	if err != nil {
-		log.Printf("failed to open database: %v", err)
+		log.Printf("failed to open test database: %v", err)
 		os.Exit(1)
 	}
-	defer database.Close()
 
-	os.Exit(m.Run())
+	_, err = database.Exec(`
+        INSERT INTO card_sets (id, title)
+        VALUES (1, 'Thai Basics')
+    `)
+	if err != nil {
+		log.Printf("failed to insert test data: %v", err)
+		os.Exit(1)
+	}
+
+	exitCode := m.Run()
+
+	database.Close()
+	os.Chdir(originalDirectory)
+	os.RemoveAll(testDirectory)
+
+	os.Exit(exitCode)
 }
 
 func TestSetByIDHandler(t *testing.T) {
