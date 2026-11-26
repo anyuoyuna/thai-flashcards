@@ -2,13 +2,114 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
 )
+
+func importCardsHandler(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	if request.Method != http.MethodPost {
+		http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := strings.TrimPrefix(request.URL.Path, "/api/sets/")
+	idStr = strings.TrimSuffix(idStr, "/cards/import")
+
+	setID, err := strconv.Atoi(idStr)
+	if err != nil || setID <= 0 {
+		http.Error(writer, "invalid set ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := getSetByID(database, setID); errors.Is(err, sql.ErrNoRows) {
+		http.Error(writer, "set not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(writer, "failed to find set", http.StatusInternalServerError)
+		return
+	}
+
+	file, _, err := request.FormFile("file")
+	if err != nil {
+		http.Error(writer, "file is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+
+	header, err := reader.Read()
+	if err != nil {
+		http.Error(writer, "failed to read CSV header", http.StatusBadRequest)
+		return
+	}
+
+	if len(header) != 3 ||
+		header[0] != "english" ||
+		header[1] != "thai" ||
+		header[2] != "transcription" {
+		http.Error(writer, "invalid CSV header", http.StatusBadRequest)
+		return
+	}
+
+	var createdCards []Card
+	rowNumber := 1
+	for {
+		record, err := reader.Read()
+		rowNumber++
+
+		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if err != nil {
+			http.Error(
+				writer,
+				fmt.Sprintf("invalid CSV at row %d", rowNumber),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		if len(record) != 3 ||
+			strings.TrimSpace(record[0]) == "" ||
+			strings.TrimSpace(record[1]) == "" ||
+			strings.TrimSpace(record[2]) == "" {
+			http.Error(
+				writer,
+				fmt.Sprintf("invalid CSV row %d", rowNumber),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		card := Card{
+			SetID:         setID,
+			English:       record[0],
+			Thai:          record[1],
+			Transcription: record[2],
+		}
+
+		createdCard, err := createCard(database, card)
+		if err != nil {
+			http.Error(writer, "failed to create card", http.StatusInternalServerError)
+			return
+		}
+
+		createdCards = append(createdCards, createdCard)
+	}
+
+	json.NewEncoder(writer).Encode(createdCards)
+}
 
 func healthHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
@@ -196,6 +297,101 @@ func cardsBySetHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 }
 
+func cardReviewHandler(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	if request.Method != http.MethodPost {
+		http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := strings.TrimPrefix(request.URL.Path, "/api/cards/")
+	idStr = strings.TrimSuffix(idStr, "/review")
+
+	cardID, err := strconv.Atoi(idStr)
+	if err != nil || cardID <= 0 {
+		http.Error(writer, "invalid card ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := getCardByID(database, cardID); errors.Is(err, sql.ErrNoRows) {
+		http.Error(writer, "card not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(writer, "failed to find card", http.StatusInternalServerError)
+		return
+	}
+
+	var requestBody struct {
+		Known bool `json:"known"`
+	}
+
+	if err := json.NewDecoder(request.Body).Decode(&requestBody); err != nil {
+		http.Error(writer, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	progress, err := recordCardReview(database, cardID, requestBody.Known)
+	if err != nil {
+		http.Error(writer, "failed to save card review", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(writer).Encode(progress)
+}
+
+func cardProgressHandler(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	if request.Method != http.MethodGet {
+		http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := strings.TrimPrefix(request.URL.Path, "/api/cards/")
+	idStr = strings.TrimSuffix(idStr, "/progress")
+
+	cardID, err := strconv.Atoi(idStr)
+	if err != nil || cardID <= 0 {
+		http.Error(writer, "invalid card ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := getCardByID(database, cardID); errors.Is(err, sql.ErrNoRows) {
+		http.Error(writer, "card not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(writer, "failed to find card", http.StatusInternalServerError)
+		return
+	}
+
+	progress, err := getCardProgress(database, cardID)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		progress = CardProgress{
+			CardID: cardID,
+		}
+	} else if err != nil {
+		http.Error(writer, "failed to get card progress", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(writer).Encode(progress)
+}
+
+func cardsRouter(writer http.ResponseWriter, request *http.Request) {
+	if strings.HasSuffix(request.URL.Path, "/review") {
+		cardReviewHandler(writer, request)
+		return
+	}
+	if strings.HasSuffix(request.URL.Path, "/progress") {
+		cardProgressHandler(writer, request)
+		return
+	}
+
+	cardByIDHandler(writer, request)
+}
+
 func cardByIDHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 
@@ -273,12 +469,54 @@ func cardByIDHandler(writer http.ResponseWriter, request *http.Request) {
 }
 
 func setsRouter(writer http.ResponseWriter, request *http.Request) {
+	if strings.HasSuffix(request.URL.Path, "/cards/import") {
+		importCardsHandler(writer, request)
+		return
+	}
 	if strings.HasSuffix(request.URL.Path, "/cards") {
 		cardsBySetHandler(writer, request)
 		return
 	}
+	if strings.HasSuffix(request.URL.Path, "/progress") {
+		setProgressHandler(writer, request)
+		return
+	}
 
 	setByIDHandler(writer, request)
+}
+
+func setProgressHandler(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	if request.Method != http.MethodGet {
+		http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := strings.TrimPrefix(request.URL.Path, "/api/sets/")
+	idStr = strings.TrimSuffix(idStr, "/progress")
+
+	setID, err := strconv.Atoi(idStr)
+	if err != nil || setID <= 0 {
+		http.Error(writer, "invalid set ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := getSetByID(database, setID); errors.Is(err, sql.ErrNoRows) {
+		http.Error(writer, "set not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(writer, "failed to find set", http.StatusInternalServerError)
+		return
+	}
+
+	progress, err := getSetProgress(database, setID)
+	if err != nil {
+		http.Error(writer, "failed to get set progress", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(writer).Encode(progress)
 }
 
 func main() {
@@ -293,7 +531,7 @@ func main() {
 	http.HandleFunc("/api/health", healthHandler)
 	http.HandleFunc("/api/sets", setsHandler)
 	http.HandleFunc("/api/sets/", setsRouter)
-	http.HandleFunc("/api/cards/", cardByIDHandler)
+	http.HandleFunc("/api/cards/", cardsRouter)
 
 	log.Println("server is running on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

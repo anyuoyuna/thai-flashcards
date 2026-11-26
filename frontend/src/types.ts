@@ -10,3 +10,18 @@ export type Card = {
   thai: string
   transcription: string
 }
+
+export type CardProgress = {
+  cardId: number
+  correctCount: number
+  incorrectCount: number
+  lastReviewedAt: string
+}
+
+export type SetProgress = {
+  setId: number
+  totalCards: number
+  studiedCards: number
+  correctCount: number
+  incorrectCount: number
+}

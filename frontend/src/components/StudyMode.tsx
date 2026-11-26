@@ -1,4 +1,4 @@
-import type { Card } from '../types'
+import type { Card, CardProgress} from '../types'
 
 type StudyModeProps = {
   cards: Card[]
@@ -8,16 +8,22 @@ type StudyModeProps = {
   onShowAnswer: () => void
   onPrevious: () => void
   onNext: () => void
+  onReview: (known: boolean) => void
+  progress: CardProgress | null
+  isReviewing: boolean
 }
 
 function StudyMode({
   cards,
   studyIndex,
   isAnswerVisible,
+  progress,
   onClose,
   onShowAnswer,
   onPrevious,
   onNext,
+  onReview,
+  isReviewing,
 }: StudyModeProps) {
   const currentCard = cards[studyIndex]
 
@@ -27,6 +33,7 @@ function StudyMode({
         type="button"
         className="back-button"
         onClick={onClose}
+        disabled={isReviewing}
       >
         Вернуться к карточкам
       </button>
@@ -34,7 +41,12 @@ function StudyMode({
       <p className="study-counter">
         Карточка {studyIndex + 1} из {cards.length}
       </p>
-
+      {progress && (
+        <p className="progress-info">
+          Знаю: {progress.correctCount} · Повторить:{' '}
+          {progress.incorrectCount}
+        </p>
+      )}
       <article className="study-card">
         <h3>{currentCard.english}</h3>
 
@@ -54,13 +66,32 @@ function StudyMode({
             Показать ответ
           </button>
         )}
+        {isAnswerVisible && (
+          <div className="review-controls">
+            <button
+              type="button"
+              onClick={() => onReview(false)}
+              disabled={isReviewing}
+            >
+              Повторить
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onReview(true)}
+              disabled={isReviewing}
+            >
+              Знаю
+            </button>
+          </div>
+        )}
       </article>
 
       <div className="study-controls">
         <button
           type="button"
           onClick={onPrevious}
-          disabled={studyIndex === 0}
+          disabled={studyIndex === 0 || isReviewing}
         >
           Предыдущая
         </button>
@@ -68,7 +99,7 @@ function StudyMode({
         <button
           type="button"
           onClick={onNext}
-          disabled={studyIndex === cards.length - 1}
+          disabled={studyIndex === cards.length - 1 || isReviewing}
         >
           Следующая
         </button>

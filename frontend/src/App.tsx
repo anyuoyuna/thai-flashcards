@@ -1,7 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import './App.css'
 import StudyMode from './components/StudyMode'
-import type { Card, CardSet } from './types'
+import type { 
+  Card, 
+  CardSet, 
+  CardProgress,
+  SetProgress,
+} from './types'
 import CardItem from './components/CardItem'
 import CardEditForm from './components/CardEditForm'
 import CardForm from './components/CardForm'
@@ -12,8 +17,13 @@ import {
   deleteCard as deleteCardRequest,
   getCards,
   getSets,
+  reviewCard as reviewCardRequest,
   updateCard as updateCardRequest,
+  getCardProgress,
+  getSetProgress,
+  importCards as importCardsRequest,
 } from './api'
+import CsvImportForm from './components/CsvImportForm'
 
 function App() {
   const [cardSets, setCardSets] = useState<CardSet[]>([])
@@ -45,6 +55,17 @@ function App() {
   const [studyIndex, setStudyIndex] = useState(0)
   const [isAnswerVisible, setIsAnswerVisible] = useState(false)
 
+  const [currentProgress, setCurrentProgress] =
+    useState<CardProgress | null>(null)
+
+  const [setProgress, setSetProgress] =
+    useState<SetProgress | null>(null)
+
+  const [isImporting, setIsImporting] = useState(false)
+  const [importError, setImportError] = useState('')
+
+  const [isReviewing, setIsReviewing] = useState(false)
+
   useEffect(() => {
     async function loadCardSets() {
       try {
@@ -59,6 +80,73 @@ function App() {
 
     loadCardSets()
   }, [])
+
+  useEffect(() => {
+    if (!isStudyMode || !cards[studyIndex]) {
+      setCurrentProgress(null)
+      return
+    }
+
+    async function loadCardProgress() {
+      try {
+        const progress = await getCardProgress(cards[studyIndex].id)
+        setCurrentProgress(progress)
+      } catch {
+        setCardsError('Не удалось загрузить прогресс карточки')
+      }
+    }
+
+    loadCardProgress()
+  }, [isStudyMode, studyIndex, cards])
+
+  useEffect(() => {
+    if (selectedSetId === null) {
+      setSetProgress(null)
+      return
+    }
+
+    const setId: number = selectedSetId
+
+    async function loadSetProgress() {
+      try {
+        const progress = await getSetProgress(setId)
+        setSetProgress(progress)
+      } catch {
+        setSetProgress(null)
+      }
+    }
+
+    loadSetProgress()
+  }, [selectedSetId, cards])
+
+  async function importCards(file: File) {
+    if (selectedSetId === null) {
+      return
+    }
+
+    setIsImporting(true)
+    setImportError('')
+
+    try {
+      const importedCards = await importCardsRequest(
+        selectedSetId,
+        file,
+      )
+
+      setCards((currentCards) => [
+        ...currentCards,
+        ...importedCards,
+      ])
+    } catch (error) {
+      if (error instanceof Error) {
+        setImportError(error.message)
+      } else {
+        setImportError('Не удалось импортировать карточки')
+      }
+    } finally {
+      setIsImporting(false)
+    }
+  }
 
   async function createSet(event: FormEvent<HTMLFormElement>) {
       event.preventDefault()
@@ -183,6 +271,8 @@ function App() {
     setIsStudyMode(false)
     setStudyIndex(0)
     setIsAnswerVisible(false)
+    setCurrentProgress(null)
+    setSetProgress(null)
   }
 
   function startStudyMode() {
@@ -200,6 +290,30 @@ function App() {
     if (studyIndex < cards.length - 1) {
       setStudyIndex((currentIndex) => currentIndex + 1)
       setIsAnswerVisible(false)
+    }
+  }
+
+  async function reviewCurrentCard(known: boolean) {
+    const currentCard = cards[studyIndex]
+
+    if (!currentCard) {
+      return
+    }
+
+    setIsReviewing(true)
+
+    try {
+      const progress = await reviewCardRequest(
+        currentCard.id,
+        known,
+      )
+
+      setCurrentProgress(progress)
+      showNextCard()
+    } catch {
+      setCardsError('Не удалось сохранить результат изучения')
+    } finally {
+      setIsReviewing(false)
     }
   }
 
@@ -257,7 +371,15 @@ function App() {
           </button>
 
           <h2>{selectedSet?.title}</h2>
-
+          {setProgress && (
+            <p className="set-progress">
+              Изучено: {setProgress.studiedCards} из{' '}
+              {setProgress.totalCards}
+              <br />
+              Знаю: {setProgress.correctCount} · Повторить:{' '}
+              {setProgress.incorrectCount}
+            </p>
+          )}
           {cards.length > 0 && !isStudyMode && (
             <button
               type="button"
@@ -288,15 +410,25 @@ function App() {
           {!isCardsLoading && !cardsError && cards.length === 0 && (
             <p>В этом наборе пока нет карточек</p>
           )}
+          {!isStudyMode && (
+            <CsvImportForm
+              isImporting={isImporting}
+              error={importError}
+              onImport={importCards}
+            />
+          )}
           {isStudyMode ? (
             <StudyMode
               cards={cards}
               studyIndex={studyIndex}
               isAnswerVisible={isAnswerVisible}
+              progress={currentProgress}
               onClose={closeStudyMode}
               onShowAnswer={() => setIsAnswerVisible(true)}
               onPrevious={showPreviousCard}
               onNext={showNextCard}
+              onReview={reviewCurrentCard}
+              isReviewing={isReviewing}
             />
           ) : (
             <div className="cards-list">

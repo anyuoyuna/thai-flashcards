@@ -12,3 +12,18 @@ type Card struct {
 	Thai          string `json:"thai"`
 	Transcription string `json:"transcription"`
 }
+
+type CardProgress struct {
+	CardID         int    `json:"cardId"`
+	CorrectCount   int    `json:"correctCount"`
+	IncorrectCount int    `json:"incorrectCount"`
+	LastReviewedAt string `json:"lastReviewedAt"`
+}
+
+type SetProgress struct {
+	SetID          int `json:"setId"`
+	TotalCards     int `json:"totalCards"`
+	StudiedCards   int `json:"studiedCards"`
+	CorrectCount   int `json:"correctCount"`
+	IncorrectCount int `json:"incorrectCount"`
+}

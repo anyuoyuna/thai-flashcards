@@ -45,6 +45,20 @@ func openDatabase() (*sql.DB, error) {
 		return nil, err
 	}
 
+	_, err = database.Exec(`
+        CREATE TABLE IF NOT EXISTS card_progress (
+			card_id INTEGER PRIMARY KEY,
+			correct_count INTEGER NOT NULL DEFAULT 0,
+			incorrect_count INTEGER NOT NULL DEFAULT 0,
+			last_reviewed_at TEXT,
+			FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
+		)
+    `)
+	if err != nil {
+		database.Close()
+		return nil, err
+	}
+
 	return database, nil
 }
 
@@ -257,4 +271,88 @@ func deleteCard(database *sql.DB, id int) error {
 	}
 
 	return nil
+}
+
+func getCardProgress(database *sql.DB, cardID int) (CardProgress, error) {
+	var progress CardProgress
+
+	err := database.QueryRow(`
+        SELECT card_id, correct_count, incorrect_count, last_reviewed_at
+        FROM card_progress
+        WHERE card_id = ?
+    `, cardID).Scan(
+		&progress.CardID,
+		&progress.CorrectCount,
+		&progress.IncorrectCount,
+		&progress.LastReviewedAt,
+	)
+
+	if err != nil {
+		return CardProgress{}, err
+	}
+
+	return progress, nil
+}
+
+func recordCardReview(
+	database *sql.DB,
+	cardID int,
+	known bool,
+) (CardProgress, error) {
+	correctIncrement := 0
+	incorrectIncrement := 1
+
+	if known {
+		correctIncrement = 1
+		incorrectIncrement = 0
+	}
+
+	_, err := database.Exec(`
+        INSERT INTO card_progress (
+            card_id,
+            correct_count,
+            incorrect_count,
+            last_reviewed_at
+        )
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(card_id) DO UPDATE SET
+            correct_count = correct_count + excluded.correct_count,
+            incorrect_count = incorrect_count + excluded.incorrect_count,
+            last_reviewed_at = CURRENT_TIMESTAMP
+    `, cardID, correctIncrement, incorrectIncrement)
+
+	if err != nil {
+		return CardProgress{}, err
+	}
+
+	return getCardProgress(database, cardID)
+}
+
+func getSetProgress(database *sql.DB, setID int) (SetProgress, error) {
+	var progress SetProgress
+
+	err := database.QueryRow(`
+        SELECT
+            COUNT(cards.id),
+            COUNT(card_progress.card_id),
+            COALESCE(SUM(card_progress.correct_count), 0),
+            COALESCE(SUM(card_progress.incorrect_count), 0)
+        FROM cards
+        LEFT JOIN card_progress
+            ON card_progress.card_id = cards.id
+        WHERE cards.set_id = ?
+    `, setID).Scan(
+		&progress.TotalCards,
+		&progress.StudiedCards,
+		&progress.CorrectCount,
+		&progress.IncorrectCount,
+	)
+
+	if err != nil {
+		return SetProgress{}, err
+	}
+
+	progress.SetID = setID
+
+	return progress, nil
 }
